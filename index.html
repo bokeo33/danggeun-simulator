@@ -1,0 +1,907 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>당근마켓 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: 모바일 앱 한 칸(최대 480px) 안에서 피드 → 상세 → 채팅 → 리포트 화면이 교체되는 구조 */
+:root{
+  --bg:#ffffff;
+  --surface:#f6f4f1;
+  --surface-2:#ebe8e3;
+  --fg:#241f1b;
+  --muted:#6e675f;
+  --line:#e7e3dd;
+  --accent:#ec5f0a;
+  --on-accent:#ffffff;
+  --accent-soft:#fff0e4;
+  --good:#1a8a4c;
+  --bad:#c93a33;
+  --font-body:"Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --font-display:"Do Hyeon","Noto Sans KR",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#141210;--surface:#1f1c19;--surface-2:#2b2723;--fg:#f3efe9;--muted:#a59e94;--line:#35302b;
+    --accent:#ff8a3d;--on-accent:#1c1008;--accent-soft:#3b2615;--good:#4cc486;--bad:#ff7d75;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#141210;--surface:#1f1c19;--surface-2:#2b2723;--fg:#f3efe9;--muted:#a59e94;--line:#35302b;
+  --accent:#ff8a3d;--on-accent:#1c1008;--accent-soft:#3b2615;--good:#4cc486;--bad:#ff7d75;color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.5}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+ul{list-style:none;margin:0;padding:0}
+h1,h2,h3,p{margin:0}
+.num{font-variant-numeric:tabular-nums}
+
+.app{height:100%;max-width:480px;margin-inline:auto;display:flex;flex-direction:column;background:var(--bg);position:relative}
+@media (min-width:520px){.app{border-inline:1px solid var(--line)}}
+.screen{flex:1;min-height:0;display:flex;flex-direction:column}
+.scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.bar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);min-height:56px}
+.bar .back{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;margin-left:-8px;font-size:20px}
+.bar .back:hover{background:var(--surface)}
+.bar .ttl{flex:1;min-width:0}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:46px;padding:0 18px;border-radius:10px;font-weight:700;font-size:15px}
+.btn.primary{background:var(--accent);color:var(--on-accent)}
+.btn.primary:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:var(--surface);color:var(--fg)}
+.btn.block{width:100%}
+
+/* 피드 */
+.theme{flex:none;padding:6px 12px;border-radius:999px;background:var(--surface);color:var(--muted);font-size:13px;font-weight:500}
+.theme:hover{background:var(--surface-2)}
+.brand-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.brand{padding:20px 16px 12px}
+.brand h1{font-family:var(--font-display);font-size:28px;line-height:1.2;color:var(--accent);letter-spacing:.01em}
+.brand p{color:var(--muted);font-size:14px;margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px 14px}
+.chip{padding:6px 13px;border-radius:999px;background:var(--surface);color:var(--muted);font-size:13px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.feed li+li{border-top:1px solid var(--line)}
+.item{display:flex;gap:14px;padding:16px;width:100%;text-align:left;align-items:flex-start}
+.item:hover{background:var(--surface)}
+.thumb{--h:30;flex:none;width:96px;height:96px;border-radius:12px;display:grid;place-items:center;font-size:44px;background:color-mix(in srgb,hsl(var(--h) 75% 55%) 24%,var(--surface))}
+.item .info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.item .t{font-weight:500;font-size:16px;line-height:1.35;overflow-wrap:anywhere}
+.item .m{color:var(--muted);font-size:13px}
+.item .p{font-weight:700;font-size:16px;margin-top:2px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center}
+.badge{font-size:12px;font-weight:700;padding:2px 8px;border-radius:6px;background:var(--accent-soft);color:var(--accent)}
+.stars{font-size:12px;color:var(--muted)}
+.foot{padding:20px 16px 28px;color:var(--muted);font-size:12px;text-align:center}
+
+/* 상세 */
+.hero{--h:30;aspect-ratio:16/10;width:100%;max-height:300px;display:grid;place-items:center;font-size:96px;background:color-mix(in srgb,hsl(var(--h) 75% 55%) 24%,var(--surface))}
+.det{padding:16px;display:flex;flex-direction:column;gap:14px}
+.seller{display:flex;gap:12px;align-items:center;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.avatar{flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:700;background:var(--accent-soft);color:var(--accent)}
+.seller b{display:block}
+.seller span{color:var(--muted);font-size:13px}
+.det h2{font-size:20px;line-height:1.35}
+.det .cat{color:var(--muted);font-size:13px}
+.det .desc{white-space:pre-line}
+.practice{background:var(--surface);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.practice h3{font-size:13px;color:var(--muted);font-weight:500}
+.cta{display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid var(--line)}
+.cta .price{flex:1;min-width:0;font-weight:700;font-size:20px}
+.cta .price small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+.cta .btn{flex:none}
+
+/* 채팅 */
+.mood{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.dots{display:flex;gap:3px}
+.dots i{width:8px;height:8px;border-radius:50%;background:var(--surface-2)}
+.dots i.on{background:var(--accent)}
+.chat-item{display:flex;gap:12px;align-items:center;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.chat-item .mini{--h:30;flex:none;width:44px;height:44px;border-radius:8px;display:grid;place-items:center;font-size:24px;background:color-mix(in srgb,hsl(var(--h) 75% 55%) 24%,var(--surface-2))}
+.chat-item .tt{flex:1;min-width:0;font-size:13px;line-height:1.35;overflow-wrap:anywhere}
+.chat-item .pr{text-align:right;font-weight:700;font-size:15px}
+.chat-item .pr s{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.msgs{padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:82%;padding:9px 13px;border-radius:16px;overflow-wrap:anywhere;font-size:15px;line-height:1.5}
+.msg.them{align-self:flex-start;background:var(--surface);border-bottom-left-radius:4px}
+.msg.me{align-self:flex-end;background:var(--accent);color:var(--on-accent);border-bottom-right-radius:4px}
+.sys{align-self:center;text-align:center;font-size:12px;color:var(--muted);background:var(--surface);padding:4px 12px;border-radius:999px}
+.msg.thought{align-self:center;max-width:92%;background:var(--accent-soft);color:var(--accent);font-style:italic;font-size:13px;border-radius:14px;text-align:center}
+.typing{display:inline-flex;gap:4px;align-items:center;padding:13px 14px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:blink 1s infinite ease-in-out}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.typing i{animation:none;opacity:.6}}
+
+.panel{border-top:1px solid var(--line);padding:14px 16px;display:flex;flex-direction:column;gap:12px;background:var(--bg);max-height:62%;overflow-y:auto}
+.panel .hint{font-size:13px;color:var(--muted)}
+.wait{text-align:center;color:var(--muted);font-size:14px;padding:14px 0}
+.opt{width:100%;text-align:left;padding:12px 14px;border-radius:12px;background:var(--surface);font-weight:500}
+.opt:hover{background:var(--surface-2)}
+.opt b{display:block;font-weight:700}
+.opt span{display:block;color:var(--muted);font-size:13px;font-weight:400}
+.opt:disabled{opacity:.45;cursor:not-allowed}
+.q{text-align:left}
+.panel>.q{align-self:flex-start}
+.stepper{display:flex;align-items:center;gap:10px}
+.stepper .sb{flex:none;width:46px;height:46px;border-radius:12px;background:var(--surface);font-size:22px;font-weight:700}
+.stepper .sb:disabled{opacity:.35;cursor:not-allowed}
+.stepper .val{flex:1;min-width:0;text-align:center;font-family:var(--font-display);font-size:30px;line-height:1.1}
+.amt-row{display:flex;align-items:baseline;justify-content:center;gap:4px;border-bottom:2px solid var(--line);padding-bottom:2px}
+.amt-row:focus-within{border-color:var(--accent)}
+.amt{width:100%;min-width:0;border:0;outline:none;background:transparent;color:var(--fg);font-family:var(--font-display);font-size:30px;line-height:1.15;text-align:right;padding:0}
+.amt-row span{font-family:var(--font-display);font-size:22px;flex:none}
+.err{color:var(--bad);font-size:13px}
+.stepper .val small{display:block;font-family:var(--font-body);font-size:12px;color:var(--muted)}
+.quick,.sweets{display:flex;flex-wrap:wrap;gap:8px}
+.q{padding:6px 12px;border-radius:999px;border:1px solid var(--line);font-size:13px}
+.q:hover{border-color:var(--accent)}
+.q[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+.label{font-size:12px;color:var(--muted);font-weight:500}
+.sub{display:flex;gap:8px}
+.sub .btn{flex:1;min-height:42px;font-size:14px}
+
+/* 리포트 */
+.rep{padding:20px 16px 28px;display:flex;flex-direction:column;gap:18px}
+.verdict{font-family:var(--font-display);font-size:30px;line-height:1.2}
+.verdict.ok{color:var(--good)}.verdict.no{color:var(--bad)}
+.rep .lead{color:var(--muted);margin-top:4px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pair>div{background:var(--surface);border-radius:12px;padding:14px;min-width:0}
+.pair .k{font-size:12px;color:var(--muted)}
+.pair .v{font-family:var(--font-display);font-size:26px;line-height:1.25;margin-top:2px}
+.pair .v.acc{color:var(--accent)}
+.pair .s{font-size:12px;color:var(--muted)}
+.scale{position:relative;padding:34px 0 54px}
+.track{position:relative;height:14px;border-radius:7px;background:var(--surface-2)}
+.seg{position:absolute;top:0;bottom:0}
+.seg.gap{background:repeating-linear-gradient(135deg,var(--surface-2) 0 5px,var(--line) 5px 9px);border-radius:0}
+.seg.saved{background:var(--accent)}
+.tick{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--fg);margin-left:-1px}
+.dotm{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:var(--bg);border:5px solid var(--accent);transform:translate(-50%,-50%)}
+.pin{position:absolute;top:0;transform:translateX(-50%);font-size:12px;text-align:center;white-space:nowrap;line-height:1.3}
+.pin b{display:block;font-size:14px}
+.lab{position:absolute;top:calc(100% - 44px);font-size:12px;color:var(--muted);line-height:1.35;white-space:nowrap}
+.lab b{display:block;color:var(--fg);font-size:14px}
+.lab.l{padding-left:6px;border-left:2px solid var(--fg)}
+.lab.r{text-align:right;padding-right:6px;border-right:2px solid var(--fg)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+.rows{border-top:1px solid var(--line)}
+.rows div{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.rows dt{color:var(--muted)}
+.rows dd{margin:0;font-weight:700;text-align:right}
+.reveal{background:var(--accent-soft);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.reveal h3{font-size:13px;color:var(--accent)}
+.act{display:flex;gap:10px;flex-wrap:wrap}
+.act .btn{flex:1 1 140px}
+</style>
+</head>
+<body>
+
+
+<div class="app" id="app">
+  <!-- 피드 -->
+  <section class="screen" id="s-feed">
+    <div class="scroll">
+      <div class="brand">
+        <div class="brand-top"><h1>당근마켓 시뮬레이터</h1><button class="theme" data-act="theme" type="button"></button></div>
+        <p>중고거래 연습도우미 · 채팅으로 얼마까지 깎을 수 있는지 연습해요</p>
+      </div>
+      <div class="chips" id="cats" role="group" aria-label="카테고리"></div>
+      <ul class="feed" id="feed"></ul>
+      <p class="foot">당근마켓과 관련 없는 비공식 연습용 시뮬레이터예요.<br>상품과 판매자는 모두 가상입니다.</p>
+    </div>
+  </section>
+
+  <!-- 상세 -->
+  <section class="screen" id="s-detail" hidden>
+    <div class="bar"><button class="back" data-go="feed" aria-label="뒤로">‹</button><div class="ttl"></div><button class="theme" data-act="theme" type="button"></button></div>
+    <div class="scroll" id="detail"></div>
+    <div class="cta" id="detailCta"></div>
+  </section>
+
+  <!-- 채팅 -->
+  <section class="screen" id="s-chat" hidden>
+    <div class="bar">
+      <button class="back" id="chatBack" aria-label="나가기">‹</button>
+      <div class="ttl"><b id="chatName"></b></div>
+      <div class="mood"><span>판매자 인내심</span><span class="dots" id="dots"></span></div>
+    </div>
+    <div class="chat-item" id="chatItem"></div>
+    <div class="scroll" id="msgsWrap"><div class="msgs" id="msgs" aria-live="polite"></div></div>
+    <div class="panel" id="panel"></div>
+  </section>
+
+  <!-- 리포트 -->
+  <section class="screen" id="s-report" hidden>
+    <div class="bar"><button class="back" data-go="feed" aria-label="처음으로">‹</button><div class="ttl"><b>결과 리포트</b></div><button class="theme" data-act="theme" type="button"></button></div>
+    <div class="scroll" id="report"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  /* ---------- 데이터 ---------- */
+  var PERSONAS = {};   /* data/personas.json 에서 불러옴 */
+  var SWEET = {
+    polite:{label:'정중하게 부탁', text:'혹시 조금만 조정해주실 수 있을까요?'},
+    reason:{label:'사정 이야기', text:'학생이라 예산이 빠듯해서요 ㅠㅠ'},
+    now:   {label:'오늘 바로 거래', text:'오늘 바로 받으러 갈 수 있어요!'},
+    cash:  {label:'현금 결제', text:'현금으로 바로 드릴게요.'},
+    flaw:  {label:'하자 이야기하기', text:''}
+  };
+  var BONUS = {
+    kind:  {polite:.10, reason:.15, now:.05, cash:.05, flaw:.10},
+    grumpy:{polite:.15, reason:-.05, now:.10, cash:.05, flaw:.05},
+    firm:  {polite:.10, reason:0,   now:.10, cash:.15, flaw:.08},
+    urgent:{polite:.05, reason:.05, now:.25, cash:.10, flaw:.08}
+  };
+  var OPENERS = [
+    {text:'안녕하세요! 아직 판매 중인가요?', rapport:.10},
+    {text:'안녕하세요, 게시글 보고 연락드렸어요. 직거래 가능할까요?', rapport:.12},
+    {text:'네고 되나요?', rapport:0},
+    {text:'얼마까지 해줘요?', rapport:-.08}
+  ];
+  var OPENER_REPLY = {
+    kind:  ['안녕하세요~ 네, 아직 판매 중이에요 :)', '네~ 직거래 좋아요! 편하신 곳으로 맞출게요 :)', '네~ 조금은 가능해요! 얼마 생각하세요?', '음... 얼마 생각하고 계세요? ㅎㅎ'],
+    grumpy:['네. 있어요.', '네, 직거래로 하시죠.', '조금은요.', '인사도 없이 가격부터요...? 네, 있어요.'],
+    firm:  ['안녕하세요. 네 있습니다. 네고는 어렵습니다.', '네, 직거래 가능합니다.', '네고는 거의 안 됩니다.', '있습니다. 가격은 고정입니다.'],
+    urgent:['네네! 아직 있어요!! 빨리 가져가실 분 찾고 있어요 ㅠㅠ', '네네 직거래 완전 좋아요!! 빨리 가져가 주세요!', '네네 조금은 가능해요 ㅠㅠ 급해서요!', '음... 급해서 많이는 못 깎아드리는데 얼마 생각하세요?']
+  };
+  var REPLY = {
+    kind:{
+      accept:function(p){return '네, 좋아요! '+won(p)+'에 드릴게요 :)';},
+      counter:function(c){return '음~ 그럼 '+won(c)+'에 드릴게요! 더 해드리기는 좀 어려워요 ㅎㅎ';},
+      stuck:'죄송해요 ㅠㅠ 지금 가격이 정말 최선이에요.',
+      insult:'앗, 그 가격은 너무 낮아서 어려워요 ㅠㅠ 조금만 더 올려주세요~',
+      final:function(c){return won(c)+'이 마지막이에요! 괜찮으시면 거래해요 :)';},
+      leave:'아무래도 어렵겠네요. 다음에 또 연락주세요!',
+      take:'감사합니다! 거래 시간 정해봐요 :)',
+      bye:'네 괜찮아요~ 다음에 또 연락주세요!'},
+    grumpy:{
+      accept:function(p){return '...그럼 '+won(p)+'에 가져가세요.';},
+      counter:function(c){return '하... '+won(c)+'까지는 볼게요.';},
+      stuck:'더는 안 깎아요. 사실 거면 사시고요.',
+      insult:'지금 장난하세요? 그 가격엔 안 팔아요.',
+      final:function(c){return won(c)+'. 마지막이에요. 싫으면 말고요.';},
+      leave:'시간 낭비하기 싫어요. 거래 안 할게요.',
+      take:'네. 그럼 시간 정해서 말씀하세요.',
+      bye:'네.'},
+    firm:{
+      accept:function(p){return '...알겠습니다. '+won(p)+'에 하시죠.';},
+      counter:function(c){return '정말 이번만 '+won(c)+'에 드릴게요. 가격은 거의 안 깎아요.';},
+      stuck:'네고 불가라고 적어뒀어요. 이 가격이 최선이에요.',
+      insult:'그 가격은 안 됩니다. 제 가격이 시세예요.',
+      final:function(c){return won(c)+' 이하는 절대 안 돼요. 마지막입니다.';},
+      leave:'네고 불가 상품이라고 말씀드렸죠. 거래 안 하겠습니다.',
+      take:'알겠습니다. 시간 정해서 연락주세요.',
+      bye:'네, 알겠습니다.'},
+    urgent:{
+      accept:function(p){return '좋아요 좋아요! '+won(p)+'에 바로 가져가세요!';},
+      counter:function(c){return '음... 급해서 '+won(c)+'까지는 해드릴게요!';},
+      stuck:'더는 정말 힘들어요 ㅠㅠ 이게 최저예요.',
+      insult:'너무 낮아요 ㅠㅠ 급해도 그 가격은 손해가 커요.',
+      final:function(c){return won(c)+'이 진짜 마지막이에요. 오늘 안에 가져가실 수 있죠?';},
+      leave:'아... 다른 분이랑 거래할게요 ㅠㅠ',
+      take:'감사합니다!! 바로 시간 잡아요!',
+      bye:'헉... 네 알겠어요 ㅠㅠ'}
+  };
+  var PRODUCTS = [];   /* data/products.json 에서 불러옴 */
+
+  var SHIP = {1:true,2:false,3:true,4:true,5:true,7:true,8:true,9:false,10:true,11:false,12:true};
+  var FACTS = {
+    1:{flaw:{a:'뒷면 모서리에 작은 찍힘이 하나 있어요. 화면은 깨끗해요.',label:'모서리 찍힘'},use:{a:'1년 정도 쓰고 주로 영상 볼 때만 사용했어요.'},parts:{a:'본체, 충전기, 케이스 있어요. 박스는 없어요.'},why:{a:'이사 날짜가 다가와서 급하게 정리하는 거예요 ㅠㅠ'}},
+    2:{flaw:{a:'상판 왼쪽에 컵 자국이 약하게 있어요.',label:'상판 컵 자국'},use:{a:'2년 썼고 주로 공부할 때만 썼어요.'},parts:{a:'상판, 다리 4개, 나사 세트 있어요. 설명서는 없어요.'},why:{a:'이사하면서 방이 좁아져서요.'}},
+    3:{flaw:{a:'사용 시간이 새것보다 짧아요. 풀파워로 15분 정도 가요.',label:'짧은 배터리 사용 시간'},use:{a:'3년 정도 썼어요.'},parts:{a:'본체, 거치대, 기본 헤드, 충전기요. 틈새 헤드는 없어요.'},why:{a:'새 모델로 바꿔서요.'}},
+    4:{flaw:{a:'없어요. 정말 두 번 입었어요.',label:null},use:{a:'두 번 입었어요.'},parts:{a:'택은 없고 옷만 보내드려요.'},why:{a:'사이즈가 저한테 커서요.'}},
+    5:{flaw:{a:'책 모서리가 약간 닳았어요. 낙서나 밑줄은 없어요.',label:'모서리 닳음'},use:{a:'한 번씩 읽었어요.'},parts:{a:'1~7권 전부 있고 보관용 박스는 없어요.'},why:{a:'책장 정리하다가 내놓게 됐어요.'}},
+    7:{flaw:{a:'케이스에 잔기스가 있어요. 이어팁은 새것으로 바꿨어요.',label:'케이스 잔기스'},use:{a:'1년 정도 썼어요.'},parts:{a:'본체, 충전 케이스, 케이블이요. 박스는 없어요.'},why:{a:'헤드폰으로 바꿔서요.'}},
+    8:{flaw:{a:'독 뒷면에 흠집이 있어요. 화면은 깨끗해요.',label:'독 흠집'},use:{a:'2년 정도 썼어요.'},parts:{a:'본체, 독, 조이콘, 충전기, HDMI 케이블이요. 게임은 없어요.'},why:{a:'잘 안 하게 돼서요.'}},
+    9:{flaw:{a:'체인에 녹이 약간 있어요. 타는 데는 문제 없어요.',label:'체인 녹'},use:{a:'3년 정도 주말에만 탔어요.'},parts:{a:'자전거 본체와 잠금장치 있어요. 라이트는 없어요.'},why:{a:'이사 가서 탈 곳이 없어요.'}},
+    10:{flaw:{a:'뒤꿈치 쪽에 약간 닳은 흔적이 있어요.',label:'뒤꿈치 닳음'},use:{a:'대여섯 번 신었어요.'},parts:{a:'신발만 보내드려요. 박스는 없어요.'},why:{a:'사이즈가 살짝 커서요.'}},
+    11:{flaw:{a:'한쪽 팔걸이 천이 살짝 올라와 있어요.',label:'팔걸이 천 올라옴'},use:{a:'2년 썼어요.'},parts:{a:'소파 본체와 다리 나사요.'},why:{a:'이사하면서 방이 바뀌어서요 ㅠㅠ'}},
+    12:{flaw:{a:'날개 쪽에 먼지가 좀 있어요. 닦으면 돼요.',label:'날개 먼지'},use:{a:'한 시즌 썼어요.'},parts:{a:'본체와 리모컨, 어댑터 있어요.'},why:{a:'이사 가는데 짐이 많아서요 ㅠㅠ'}}
+  };
+  var ASK_Q = {flaw:'흠집이나 하자는 없나요?', use:'얼마나 사용하셨어요?', parts:'구성품은 다 있나요?', why:'판매하는 이유가 있으세요?'};
+  var FOLLOW = {
+    ack:'그렇군요, 알겠어요!',
+    thanks:'자세히 알려주셔서 감사해요!',
+    concern:'그 부분은 조금 아쉬운데요…',
+    sympathy:'아 그러시구나, 정리하시느라 바쁘시겠어요'
+  };
+  var REACT_R = {
+    kind:  {ack:'네~ 궁금한 거 있으면 더 물어보세요 :)', thanks:'별말씀을요~ 편하게 물어보세요 :)', concern:'아 맞아요, 그 부분은 저도 인정해요 ㅠㅠ 다음에 가격 말씀하시면 감안해서 생각해볼게요.', sympathy:'이해해주셔서 감사해요 ㅠㅠ'},
+    grumpy:{ack:'네.', thanks:'네.', concern:'글에도 써놨는데요. ...그래도 인정은 해요.', sympathy:'...네.'},
+    firm:  {ack:'네.', thanks:'네, 천만에요.', concern:'그건 가격에 이미 반영된 거예요. ...말씀하신 건 알겠습니다.', sympathy:'네.'},
+    urgent:{ack:'네네!', thanks:'네네 괜찮아요!', concern:'아... 맞아요 ㅠㅠ 다음 제안 때 감안해드릴게요!', sympathy:'맞아요 ㅠㅠ 진짜 급해요!!'}
+  };
+  var REACT_FX = {
+    kind:  {ack:0, thanks:.03, concern:.04, sympathy:.04},
+    grumpy:{ack:0, thanks:.02, concern:-.03, sympathy:0},
+    firm:  {ack:0, thanks:.02, concern:0, sympathy:0},
+    urgent:{ack:0, thanks:.02, concern:.05, sympathy:.04}
+  };
+  var MEET_L = {direct:'직거래로 갈게요', ship:'택배로 받고 싶어요', place:'장소는 맞춰드릴게요', time:'언제 거래 가능한지 물어보기', mid:'중간 지점에서 만나자고 하기'};
+  var MEET_Q = {
+    direct:function(p){return '직거래로 할게요. '+p.loc+' 쪽으로 제가 갈게요.';},
+    ship:function(){return '택배로 받을 수도 있을까요?';},
+    place:function(){return '장소는 판매자님 편하신 곳으로 맞출게요.';},
+    time:function(){return '거래는 언제쯤 가능하세요?';},
+    mid:function(){return '혹시 중간 지점에서 만날 수 있을까요?';}
+  };
+  var MEET_FX = {
+    kind:  {direct:.05, ship:0,    place:.06, time:.03, mid:.02},
+    grumpy:{direct:.08, ship:-.05, place:.06, time:.02, mid:-.07},
+    firm:  {direct:.06, ship:-.04, place:.05, time:.02, mid:-.05},
+    urgent:{direct:.10, ship:-.03, place:.05, time:.04, mid:-.02}
+  };
+  var MEET_R = {
+    kind:{
+      direct:function(p){return p.loc+' 근처에서 봬요 :)';},
+      ship:'택배도 가능해요~ 택배비는 따로 부탁드릴게요 :)',
+      noship:'이건 부피가 있어서 택배는 어려워요 ㅠㅠ 직거래만 가능해요!',
+      place:function(p){return '와, 배려 감사해요 :) '+p.loc+' 근처면 편해요!';},
+      time:'평일엔 저녁 7시 이후, 주말엔 언제든 괜찮아요~',
+      mid:'중간이면… 음, 괜찮아요! 조금 멀긴 하지만요 ㅎㅎ'},
+    grumpy:{
+      direct:function(p){return '네. 그게 편하죠. '+p.station+' 앞으로 오세요.';},
+      ship:'택배요...? 포장하는 거 귀찮은데. 하긴 하는데 택배비는 따로예요.',
+      noship:'그걸 어떻게 택배로 보내요. 직거래만 돼요.',
+      place:function(p){return '...그럼 '+p.station+' 앞으로 오세요.';},
+      time:'오늘 저녁 8시. 늦으면 안 기다려요.',
+      mid:'제가 왜 가야 해요? 그건 어려워요.'},
+    firm:{
+      direct:'직거래가 좋습니다.',
+      ship:'택배는 선호하지 않습니다. 가능은 한데 택배비는 별도입니다.',
+      noship:'직거래만 가능합니다.',
+      place:function(p){return p.loc+'에서 뵙겠습니다.';},
+      time:'평일 저녁 8시 이후 가능합니다.',
+      mid:'장소 변경은 어렵습니다.'},
+    urgent:{
+      direct:'좋아요 좋아요!! 직거래 완전 환영이에요!',
+      ship:'택배도 되긴 하는데... 직거래가 훨씬 빨라요 ㅠㅠ',
+      noship:'택배는 정말 힘들어요 ㅠㅠ 직거래로 부탁드려요!',
+      place:function(p){return '네네 '+p.loc+'에서 봬요!!';},
+      time:'지금 바로도 되고 내일 아침도 돼요!!',
+      mid:'아... 중간이면 시간이 걸리는데 ㅠㅠ 가능은 해요.'}
+  };
+
+  /* 많이 낮게 불렀을 때 (판매자 최저가의 85% 아래) */
+  var INSULT = {
+    kind:  ['앗, 그 가격은 너무 낮아서 어려워요 ㅠㅠ 조금만 더 올려주세요~', '혹시 0 하나 빠뜨리신 거 아니죠? ㅎㅎ', '음... 그 가격은 좀 슬퍼요 ㅠㅠ'],
+    grumpy:['장난하세요? 그 가격엔 안 팔아요.', '차라리 제가 쓰다 버릴게요.', '가격 보고 연락하신 거 맞죠?'],
+    firm:  ['네고 불가라고 적혀 있는 거 안 보이세요?', '그 가격이면 제가 사고 싶네요.', '그 가격은 안 됩니다. 제 가격이 시세예요.'],
+    urgent:['아무리 급해도 그건 너무해요 ㅠㅠㅠ', '급처지 무료나눔이 아니에요 ㅠㅠ', '너무 낮아요 ㅠㅠ 급해도 그건 손해가 커요.']
+  };
+  /* 터무니없이 불렀을 때 (처음 가격의 절반 아래) */
+  var HARSH = {
+    kind:  ['앗... 그 가격이면 제가 돈을 드려야 할 것 같은데요 ㅎㅎ;;', '혹시 다른 상품이랑 헷갈리신 거 아니죠? ㅎㅎ;;', '그 가격이면 그냥 나눔하는 게 마음 편하겠어요 ㅠㅠ'],
+    grumpy:['그 돈이면 부셔서 보내드립니다.', '너 어디야?', '그 돈이면 부품 하나도 못 사요.'],
+    firm:  ['반값 이하요? 제 글 읽으셨어요?', '그 돈이면 새것은커녕 구경도 못 해요.', '농담이시죠? 대답할 가치가 없네요.'],
+    urgent:['그 가격이면 그냥 제가 이고 이사 갈게요...', '아무리 급처라도 그건 ㅠㅠㅠ 저도 이사비가 필요해요', '이삿짐 싸다가 웃었어요... 농담이죠? ㅠㅠ']
+  };
+  /* 아까보다 낮게 / 같은 가격을 또 불렀을 때 */
+  var LOWER = {kind:'어... 아까보다 더 낮아졌어요 ㅎㅎ;;', grumpy:'아까보다 더 깎네? 장난해요?', firm:'아까 부른 가격보다 낮은데요. 진지하게 하세요.', urgent:'어라 아까보다 낮아졌어요 ㅠㅠ'};
+  var REPEAT = {kind:'아까랑 같은 가격이네요 ㅎㅎ 조금만 더 올려주시면 안 될까요?', grumpy:'같은 말 두 번 하지 마세요.', firm:'방금 거절한 가격입니다.', urgent:'아까랑 똑같잖아요 ㅠㅠ'};
+  var BLOCK_LINE = {grumpy:'차단합니다.', firm:'더 이상 연락하지 마세요. 차단하겠습니다.'};
+
+  /* 속마음 기록에 쓰는 말투: 내 말 하나에 판매자가 속으로 느끼는 정도 */
+  var THOUGHT_STYLE = {
+    kind:  {love:'완전 좋아요! 이분 마음에 들어요 :)', like:'좋네요~ 기분이 좋아져요.', meh:'음, 그렇구나 하고 넘어가요.', dislike:'음... 살짝 아쉬워요.', hate:'그건 좀 그래요 ㅠㅠ 속상하네요.'},
+    grumpy:{love:'오, 이 정도면 괜찮네.', like:'나쁘지 않네요.', meh:'...별 느낌 없어요.', dislike:'음, 별로인데요.', hate:'진짜 별로네요. 짜증나요.'},
+    firm:  {love:'합리적인 분이네요.', like:'나쁘지 않습니다.', meh:'...그렇군요.', dislike:'달갑지 않네요.', hate:'마음에 안 듭니다.'},
+    urgent:{love:'완전 좋아요!! 이분한테 팔고 싶어요', like:'좋아요! 괜찮은 분 같아요.', meh:'음... 그런가 보다 해요.', dislike:'살짝 아쉬워요 ㅠㅠ', hate:'그건 좀... 너무해요 ㅠㅠ'}
+  };
+
+  /* ---------- 화면 모드 ---------- */
+  function effectiveTheme(){
+    var t = document.documentElement.getAttribute('data-theme');
+    if(t==='dark'||t==='light') return t;
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  function paintThemeBtns(){
+    var next = effectiveTheme()==='dark' ? '라이트 모드' : '다크 모드';
+    document.querySelectorAll('.theme').forEach(function(b){b.textContent = next + '로';});
+  }
+  function toggleTheme(){
+    var next = effectiveTheme()==='dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try{ localStorage.setItem('sim-theme', next); }catch(e){}
+    paintThemeBtns();
+  }
+  try{ var saved = localStorage.getItem('sim-theme'); if(saved==='dark'||saved==='light') document.documentElement.setAttribute('data-theme', saved); }catch(e){}
+
+  /* ---------- 유틸 ---------- */
+  var $ = function(s){return document.querySelector(s);};
+  function won(n){return Number(n).toLocaleString('ko-KR')+'원';}
+  function unit(p){return p>=100000?5000:1000;}
+  function roundUp(n,u){return Math.ceil(n/u)*u;}
+  function roundDn(n,u){return Math.floor(n/u)*u;}
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+  function starStr(n){return '★'.repeat(n)+'☆'.repeat(3-n);}
+  function sellerThought(persona, delta){
+    var s = THOUGHT_STYLE[persona];
+    if(delta >= 0.08) return s.love;
+    if(delta > 0) return s.like;
+    if(delta === 0) return s.meh;
+    if(delta > -0.05) return s.dislike;
+    return s.hate;
+  }
+  function logPush(text, delta){
+    if(!st) return;
+    st.log.push({text:text, delta:delta, thought:sellerThought(st.p.persona, delta)});
+  }
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var cat = '전체', cur = null, st = null;
+  var screens = ['feed','detail','chat','report'];
+  function show(name){
+    screens.forEach(function(n){$('#s-'+n).hidden = (n!==name);});
+  }
+
+  /* ---------- 피드 ---------- */
+  function renderCats(){
+    var cats = ['전체'].concat(PRODUCTS.map(function(p){return p.cat;}).filter(function(c,i,a){return a.indexOf(c)===i;}));
+    $('#cats').innerHTML = cats.map(function(c){
+      return '<button class="chip" data-cat="'+c+'" aria-pressed="'+(c===cat)+'">'+c+'</button>';
+    }).join('');
+  }
+  function renderFeed(){
+    var list = PRODUCTS.filter(function(p){return cat==='전체'||p.cat===cat;});
+    $('#feed').innerHTML = list.map(function(p){
+      var pe = PERSONAS[p.persona];
+      return '<li><button class="item" data-id="'+p.id+'">'+
+        '<div class="thumb" style="--h:'+p.hue+'">'+p.emoji+'</div>'+
+        '<div class="info"><div class="t">'+p.title+'</div>'+
+        '<div class="m">'+p.loc+' · '+p.time+'</div>'+
+        '<div class="p num">'+won(p.ask)+'</div>'+
+        '<div class="tags"><span class="badge">'+pe.label+'</span><span class="stars" aria-label="난이도 '+pe.stars+'단계">난이도 '+starStr(pe.stars)+'</span></div>'+
+        '</div></button></li>';
+    }).join('');
+  }
+
+  /* ---------- 상세 ---------- */
+  function openDetail(id){
+    cur = PRODUCTS.filter(function(p){return p.id===id;})[0];
+    var pe = PERSONAS[cur.persona];
+    $('#detail').innerHTML =
+      '<div class="hero" style="--h:'+cur.hue+'">'+cur.emoji+'</div>'+
+      '<div class="det">'+
+        '<div class="seller"><div class="avatar">'+cur.seller.charAt(0)+'</div><div><b>'+cur.seller+'</b><span>'+cur.loc+'</span></div></div>'+
+        '<div><h2>'+cur.title+'</h2><p class="cat">'+cur.cat+' · '+cur.time+'</p></div>'+
+        '<p class="desc">'+cur.desc+'</p>'+
+        '<div class="practice"><h3>연습 정보</h3><div><b>'+pe.label+'</b> · 난이도 '+starStr(pe.stars)+'</div>'+
+        '<p class="hint" style="color:var(--muted);font-size:13px">채팅으로 흥정해서 최대한 싸게 사보세요. 판매자의 속마음 가격은 거래가 끝나면 공개돼요.</p></div>'+
+      '</div>';
+    $('#s-detail .ttl').textContent = '';
+    $('#detailCta').innerHTML =
+      '<div class="price num">'+won(cur.ask)+'<small>가격 제안 가능</small></div>'+
+      '<button class="btn primary" id="startChat">채팅하기</button>';
+    show('detail');
+  }
+
+  /* ---------- 채팅 ---------- */
+  function startChat(){
+    var pe = PERSONAS[cur.persona];
+    st = {p:cur, curAsk:cur.ask, lastOffer:0, rapport:0, patience:pe.patience, maxPatience:pe.patience,
+      used:{}, sel:{}, stage:'open', busy:false, final:false, offerVal:null, result:null, rounds:0,
+      asked:{}, met:{}, qCount:0, flaws:[], flawNoted:false, follow:[], view:'root', lines:{}, log:[]};
+    $('#chatName').textContent = cur.seller;
+    $('#msgs').innerHTML = '';
+    addSys('판매자에게 먼저 말을 걸어보세요');
+    renderChatItem(); renderDots(); renderPanel();
+    show('chat');
+  }
+  function renderChatItem(){
+    var p = st.p;
+    $('#chatItem').innerHTML =
+      '<div class="mini" style="--h:'+p.hue+'">'+p.emoji+'</div>'+
+      '<div class="tt">'+p.title+'</div>'+
+      '<div class="pr num">'+(st.curAsk<p.ask?'<s>'+won(p.ask)+'</s>':'')+won(st.curAsk)+'</div>';
+  }
+  function renderDots(){
+    var h=''; for(var i=0;i<st.maxPatience;i++){h+='<i class="'+(i<st.patience?'on':'')+'"></i>';}
+    $('#dots').innerHTML = h;
+    $('#dots').setAttribute('aria-label','판매자 인내심 '+Math.max(st.patience,0)+'/'+st.maxPatience);
+  }
+  function scrollDown(){var w=$('#msgsWrap'); w.scrollTop = w.scrollHeight;}
+  function addMsg(side,text){
+    var d=document.createElement('div'); d.className='msg '+side; d.textContent=text;
+    $('#msgs').appendChild(d); scrollDown();
+  }
+  function addSys(text){
+    var d=document.createElement('div'); d.className='sys'; d.textContent=text;
+    $('#msgs').appendChild(d); scrollDown();
+  }
+  function addThought(text){
+    var d=document.createElement('div'); d.className='msg thought'; d.textContent='💭 속마음: '+text;
+    $('#msgs').appendChild(d); scrollDown();
+  }
+  function sellerSay(text, after){
+    st.busy = true; renderPanel();
+    var t=document.createElement('div'); t.className='msg them typing'; t.innerHTML='<i></i><i></i><i></i>';
+    $('#msgs').appendChild(t); scrollDown();
+    var delay = reduce ? 150 : Math.min(1200, 550 + text.length*14);
+    setTimeout(function(){
+      t.remove(); addMsg('them',text); st.busy=false;
+      if(after) after();
+      renderChatItem(); renderDots(); renderPanel();
+    }, delay);
+  }
+
+  function R(){return REPLY[st.p.persona];}
+  function threshold(){
+    var pe = PERSONAS[st.p.persona], p = st.p, u = unit(p.ask);
+    var f = clamp(pe.stiff - st.rapport, 0, 1);
+    return Math.min(st.curAsk, roundUp(p.floor + (p.ask - p.floor)*f, u));
+  }
+  function endDeal(price,text){
+    sellerSay(text, function(){
+      st.endThreshold = threshold();
+      st.result = {deal:true, price:price}; st.stage='done';
+      addSys('거래가 성사됐어요');
+      addThought('사실 '+won(st.p.floor)+'까지는 생각하고 있었어요.');
+    });
+  }
+  function endLeave(text,quit,blocked){
+    sellerSay(text, function(){
+      st.endThreshold = threshold();
+      st.result = {deal:false, quit:!!quit, blocked:!!blocked}; st.stage='done';
+      addSys(blocked?'판매자가 회원님을 차단했어요':(quit?'거래를 포기했어요':'판매자가 대화방을 나갔어요'));
+      addThought('사실 '+won(st.p.floor)+'까지는 생각하고 있었어요.');
+    });
+  }
+  function pickLine(pool){
+    var left = pool.filter(function(l){return !st.lines[l];});
+    if(!left.length){ left = pool; }
+    var l = left[Math.floor(Math.random()*left.length)];
+    st.lines[l] = true; return l;
+  }
+  /* 화난 판매자의 한마디 → 인내심이 바닥나면 차단 또는 대화방 나가기 */
+  function angry(line){
+    var per = st.p.persona;
+    if(st.patience>0){ sellerSay(line); return; }
+    st.patience = 0;
+    sellerSay(line, function(){
+      if(BLOCK_LINE[per]) endLeave(BLOCK_LINE[per], false, true);
+      else endLeave(R().leave);
+    });
+  }
+  function chooseOpener(i){
+    var op = OPENERS[i];
+    addMsg('me', op.text); st.rapport += op.rapport; st.stage='nego';
+    logPush(op.text, op.rapport);
+    if(i===1) st.met.direct = true;
+    sellerSay(OPENER_REPLY[st.p.persona][i]);
+  }
+  function sendOffer(){
+    var p = st.p, P = st.offerVal, u = unit(p.ask), pe = PERSONAS[p.persona];
+    var sweets = Object.keys(st.sel).filter(function(k){return st.sel[k];});
+    var parts = sweets.map(function(k){return k==='flaw' ? '아까 말씀하신 '+st.flaws[0]+' 때문에 조금만 조정해주세요.' : SWEET[k].text;});
+    parts.push(won(P)+'에 구매하고 싶어요.');
+    addMsg('me', parts.join(' '));
+    sweets.forEach(function(k){
+      var d = BONUS[p.persona][k];
+      st.rapport += d; st.used[k]=true;
+      logPush(k==='flaw' ? '하자 이야기하기' : SWEET[k].label, d);
+    });
+    var prev = st.lastOffer; st.sel = {}; st.lastOffer = Math.max(prev, P); st.rounds++; st.view = 'root'; st.follow = [];
+    var T = threshold();
+    var insultLine = roundDn(p.floor*0.85, u);
+    var priceMsg = won(P)+'에 구매하고 싶어요.';
+    st.offerVal = null;
+    if(P >= T){ logPush(priceMsg, .05); endDeal(P, R().accept(P)); return; }
+    if(P < p.ask*0.5){
+      st.patience -= (p.persona==='grumpy'||p.persona==='firm') ? 4 : 3; st.rapport -= .08;
+      logPush(priceMsg, -.08);
+      angry(pickLine(HARSH[p.persona]));
+      return;
+    }
+    if(P < insultLine){
+      st.patience -= (p.persona==='grumpy'?3:2); st.rapport -= .05;
+      logPush(priceMsg, -.05);
+      angry(pickLine(INSULT[p.persona]));
+      return;
+    }
+    if(prev && P <= prev){
+      st.patience -= (P<prev ? 2 : 1); st.rapport -= .04;
+      logPush(priceMsg, -.04);
+      angry(P<prev ? LOWER[p.persona] : REPEAT[p.persona]);
+      return;
+    }
+    logPush(priceMsg, 0);
+    var next = Math.max(T, roundDn(st.curAsk - (st.curAsk-P)*pe.k, u));
+    if(next >= st.curAsk) next = Math.max(T, st.curAsk - u);
+    next = Math.min(next, st.curAsk);
+    st.patience -= 1;
+    if(next >= st.curAsk){
+      if(st.patience<=0){ st.patience=0; endLeave(R().leave); }
+      else sellerSay(R().stuck);
+      return;
+    }
+    st.curAsk = next;
+    if(st.patience<=0){
+      st.patience = 0; st.final = true;
+      sellerSay(R().final(next));
+    } else {
+      sellerSay(R().counter(next));
+    }
+  }
+  function buyNow(){
+    addMsg('me', won(st.curAsk)+'에 구매할게요.');
+    st.stage='wait';
+    endDeal(st.curAsk, R().take);
+  }
+  function giveUp(){
+    addMsg('me','죄송하지만 이번엔 어려울 것 같아요.');
+    endLeave(R().bye, true);
+  }
+
+  function offerRange(){
+    var u = unit(st.p.ask);
+    return {u:u, max:st.curAsk-u, min:u};
+  }
+  function tone(text){
+    var per = st.p.persona;
+    if(per==='kind' && text.indexOf(':)')<0) return text+' :)';
+    if(per==='grumpy' && st.qCount>2) return text+' 질문이 좀 많네요.';
+    if(per==='urgent' && st.qCount>1) return text+' 그런데 빨리 정하실 수 있어요? ㅠㅠ';
+    return text;
+  }
+  function doAsk(k){
+    var f = FACTS[st.p.id][k], per = st.p.persona, follow, d = 0;
+    st.asked[k] = true; st.qCount++; st.view = 'root'; st.follow = [];
+    addMsg('me', ASK_Q[k]);
+    if(per==='kind') d = .03;
+    if(per==='grumpy' && st.qCount>2){ d = -.03; st.patience = Math.max(1, st.patience-1); }
+    if(per==='urgent' && st.qCount>2) d = -.04;
+    st.rapport += d;
+    logPush(ASK_Q[k], d);
+    if(k==='flaw' && f.label){ st.flaws.push(f.label); follow = ['concern','ack']; }
+    else if(k==='why') follow = ['sympathy','thanks'];
+    else follow = ['thanks','ack'];
+    sellerSay(tone(f.a), function(){ st.follow = follow; });
+  }
+  function doFollow(k){
+    var per = st.p.persona, d = REACT_FX[per][k] || 0;
+    st.follow = []; st.view = 'root';
+    addMsg('me', FOLLOW[k]);
+    st.rapport += d;
+    logPush(FOLLOW[k], d);
+    if(k==='concern') st.flawNoted = true;
+    sellerSay(REACT_R[per][k]);
+  }
+  function doMeet(k){
+    var p = st.p, per = p.persona, fx = MEET_FX[per][k], reply, d = 0;
+    st.met[k] = true; st.view = 'root'; st.follow = [];
+    addMsg('me', MEET_Q[k](p));
+    if(k==='ship' && !SHIP[p.id]){ reply = MEET_R[per].noship; }
+    else { d = fx; st.rapport += d; reply = MEET_R[per][k]; }
+    logPush(MEET_L[k], d);
+    sellerSay(typeof reply==='function' ? reply(p) : reply);
+  }
+  function hintText(v){
+    return '판매자 제시가 '+won(st.curAsk)+(v ? ' · 처음 가격보다 약 '+Math.round((1-v/st.p.ask)*100)+'% 낮게' : ' · 금액을 직접 입력할 수 있어요');
+  }
+  function showErr(msg){var e=$('#offerErr'); if(e){e.textContent=msg; e.hidden=false;}}
+  function trySend(){
+    var v = st.offerVal;
+    if(!v || v<100){ showErr('제안할 금액을 입력해 주세요. 100원 이상부터 돼요.'); return; }
+    if(v>=st.curAsk){ showErr('판매자 제시가 '+won(st.curAsk)+'보다 낮게 불러야 해요. 그 가격에 사려면 돌아가서 구매를 누르세요.'); return; }
+    sendOffer();
+  }
+  function backBtn(){return '<button class="q" data-act="view" data-v="root">‹ 돌아가기</button>';}
+  function offerHtml(rg){
+    var p = st.p, u = rg.u, min = rg.min, max = rg.max;
+    if(st.offerVal==null){
+      var d = st.lastOffer ? roundDn((st.lastOffer+st.curAsk)/2,u) : roundDn(p.ask*.9,u);
+      st.offerVal = clamp(d,min,max);
+    }
+    var v = st.offerVal;
+    var sw = Object.keys(SWEET).filter(function(k){return !st.used[k] && (k!=='flaw' || st.flaws.length);});
+    return '<div class="label">제안 가격</div>'+
+      '<div class="stepper">'+
+        '<button class="sb" data-act="step" data-d="-1" aria-label="'+won(u)+' 내리기">−</button>'+
+        '<div class="val num"><div class="amt-row"><input id="offerInput" class="amt num" inputmode="numeric" autocomplete="off" aria-label="제안 가격 (원)" value="'+(v?v.toLocaleString('ko-KR'):'')+'"><span>원</span></div>'+
+        '<small id="offerHint">'+hintText(v)+'</small></div>'+
+        '<button class="sb" data-act="step" data-d="1" aria-label="'+won(u)+' 올리기">+</button>'+
+      '</div>'+
+      '<p class="err" id="offerErr" hidden></p>'+
+      (sw.length?'<div class="label">함께 말하기 (한 번씩만 쓸 수 있어요)</div><div class="sweets" role="group">'+sw.map(function(k){
+        return '<button class="q" data-act="sweet" data-k="'+k+'" aria-pressed="'+(!!st.sel[k])+'">'+SWEET[k].label+'</button>';
+      }).join('')+'</div>':'')+
+      '<button class="btn primary block" data-act="send">이 가격으로 제안하기</button>';
+  }
+  function renderPanel(){
+    var P = $('#panel');
+    if(st.busy){ P.innerHTML='<p class="wait">판매자가 입력 중이에요…</p>'; return; }
+    if(st.stage==='open'){
+      P.innerHTML = '<p class="hint">첫 인사로 보낼 말을 골라보세요</p>'+
+        OPENERS.map(function(o,i){return '<button class="opt" data-act="open" data-i="'+i+'">'+o.text+'</button>';}).join('');
+      return;
+    }
+    if(st.stage==='done'){
+      P.innerHTML = '<button class="btn primary block" data-act="report">결과 보기</button>';
+      return;
+    }
+    if(st.final){
+      P.innerHTML = '<p class="hint">판매자가 마지막 가격을 말했어요. 이 가격에 살지 정해보세요.</p>'+
+        '<button class="btn primary block" data-act="buy">'+won(st.curAsk)+'에 구매하기</button>'+
+        '<button class="btn ghost block" data-act="quit">거래 포기</button>';
+      return;
+    }
+    var rg = offerRange(), canOffer = rg.min<=rg.max;
+    var askLeft = Object.keys(ASK_Q).filter(function(k){return !st.asked[k];});
+    var meetLeft = Object.keys(MEET_Q).filter(function(k){return !st.met[k];});
+    if(st.view==='ask'){
+      P.innerHTML = backBtn()+'<div class="label">상품 상태 물어보기</div>'+
+        askLeft.map(function(k){return '<button class="opt" data-act="ask" data-k="'+k+'">'+ASK_Q[k]+'</button>';}).join('');
+      return;
+    }
+    if(st.view==='meet'){
+      P.innerHTML = backBtn()+'<div class="label">거래 방식 이야기하기</div>'+
+        meetLeft.map(function(k){return '<button class="opt" data-act="meet" data-k="'+k+'">'+MEET_L[k]+'</button>';}).join('');
+      return;
+    }
+    if(st.view==='offer' && canOffer){
+      P.innerHTML = backBtn()+offerHtml(rg);
+      return;
+    }
+    var h = '';
+    if(st.follow.length){
+      h += '<div class="label">이어서 말하기</div><div class="quick">'+st.follow.map(function(k){
+        return '<button class="q" data-act="follow" data-k="'+k+'">'+FOLLOW[k]+'</button>';
+      }).join('')+'</div>';
+    }
+    h += '<div class="label">무엇을 말할까요?</div>'+
+      '<button class="opt" data-act="view" data-v="ask"'+(askLeft.length?'':' disabled')+'><b>상품 상태 물어보기</b><span>'+(askLeft.length?'남은 질문 '+askLeft.length+'개':'궁금한 건 다 물어봤어요')+'</span></button>'+
+      '<button class="opt" data-act="view" data-v="meet"'+(meetLeft.length?'':' disabled')+'><b>거래 방식 이야기하기</b><span>'+(meetLeft.length?'직거래, 택배, 장소, 시간 · 남은 주제 '+meetLeft.length+'개':'거래 방식은 다 이야기했어요')+'</span></button>'+
+      '<button class="opt" data-act="view" data-v="offer"'+(canOffer?'':' disabled')+'><b>가격 제안하기</b><span>'+(canOffer?'현재 제시가 '+won(st.curAsk):'더 제안할 가격 범위가 없어요')+'</span></button>'+
+      '<div class="sub"><button class="btn ghost" data-act="buy">'+won(st.curAsk)+'에 구매</button><button class="btn ghost" data-act="quit">거래 포기</button></div>';
+    P.innerHTML = h;
+  }
+
+  /* ---------- 리포트 ---------- */
+  function renderReport(){
+    var p = st.p, r = st.result, pe = PERSONAS[p.persona];
+    var maxSave = p.ask - p.floor;
+    var deal = r.deal, fin = deal ? r.price : null;
+    var saved = deal ? p.ask - fin : 0;
+    var missed = deal ? fin - p.floor : maxSave;
+    var pct = deal && maxSave>0 ? clamp(Math.round(saved/maxSave*100),0,100) : 0;
+    var endT = st.endThreshold != null ? st.endThreshold : threshold();
+    var lo = p.floor - maxSave*.3, hi = p.ask + maxSave*.08;
+    var X = function(v){return ((v-lo)/(hi-lo)*100);};
+    var xf = X(p.floor), xa = X(p.ask), xv = deal ? X(fin) : null;
+
+    var head, lead;
+    if(deal){
+      head = '<h2 class="verdict ok">거래 성사</h2>';
+      lead = pct>=95 ? '판매자 속마음 가격에 거의 닿았어요.' :
+             pct>=70 ? '잘 깎았어요. 조금만 더 해볼 수 있었어요.' :
+             pct>=40 ? '절반 정도 깎았어요. 호감 포인트를 더 써보세요.' :
+                       '더 깎을 여지가 많이 남아 있었어요.';
+    } else {
+      head = '<h2 class="verdict no">'+(r.blocked?'차단당함':'거래 결렬')+'</h2>';
+      lead = r.blocked ? '무리한 요구가 쌓여서 판매자가 차단했어요. 채팅 위의 판매자 인내심을 잘 보세요.' :
+             r.quit ? '직접 거래를 포기했어요.' : '판매자가 대화방을 나갔어요. 너무 낮은 가격을 부르면 인내심이 빨리 줄어요.';
+    }
+
+    /* 판매자 속마음: 맨 위, 가장 크게 */
+    var revealBody = '<p>사실 <b class="num">'+won(p.floor)+'</b>까지는 생각하고 있었어요.</p>';
+    if(deal){
+      revealBody += fin<=p.floor
+        ? '<p>속마음 최저가에 정확히 맞춰 사셨어요!</p>'
+        : '<p><b class="num">'+won(fin)+'</b>에 사셨는데, 최저가보다 <b class="num">'+won(fin-p.floor)+'</b> 더 냈어요.</p>';
+      revealBody += '<p>거래가 성사된 순간 판매자가 받아줄 수 있었던 가장 낮은 가격은 <b class="num">'+won(endT)+'</b>이었어요.</p>';
+    } else {
+      revealBody += '<p>대화가 끝난 순간 판매자가 받아줬을 가장 낮은 가격은 <b class="num">'+won(endT)+'</b>이었어요.</p>';
+    }
+    revealBody += '<p class="hint" style="color:var(--muted)">'+pe.likes+'</p>';
+    var reveal = '<div class="reveal" style="padding:20px"><h3 style="font-size:15px">판매자 속마음 · '+pe.label+'</h3>'+revealBody+'</div>';
+
+    /* 속마음 기록: 내 말 하나하나에 대한 반응 */
+    var logHtml = '';
+    if(st.log.length){
+      logHtml = '<div><div class="label" style="margin-bottom:8px">속마음 기록 · 내 말에 대한 반응</div><dl class="rows" style="margin:0">'+
+        st.log.map(function(e){
+          var tag = e.delta>0 ? '<span style="color:var(--good)">▲</span>' : e.delta<0 ? '<span style="color:var(--bad)">▼</span>' : '<span style="color:var(--muted)">−</span>';
+          return '<div style="align-items:flex-start"><dt style="max-width:60%">"'+e.text+'"</dt><dd style="text-align:right;font-weight:400;color:var(--muted)">'+tag+' '+e.thought+'</dd></div>';
+        }).join('')+
+      '</dl></div>';
+    }
+
+    $('#report').innerHTML =
+      '<div class="rep">'+
+        '<div>'+head+'<p class="lead">'+lead+'</p></div>'+
+        reveal+
+        '<div class="pair">'+
+          '<div><div class="k">내가 깎은 금액</div><div class="v acc num">'+won(saved)+'</div><div class="s num">'+(deal?Math.round(saved/p.ask*1000)/10+'% 할인':'—')+'</div></div>'+
+          '<div><div class="k">최대로 깎을 수 있던 금액</div><div class="v num">'+won(maxSave)+'</div><div class="s num">'+Math.round(maxSave/p.ask*1000)/10+'% 할인</div></div>'+
+        '</div>'+
+        (deal?'<p class="num" style="font-weight:700">달성률 '+pct+'% <span style="font-weight:400;color:var(--muted)">(깎은 금액 ÷ 최대 가능 금액)</span></p>':'')+
+        '<div class="scale" aria-hidden="true">'+
+          (deal?'<div class="pin num" style="left:'+clamp(xv,14,86)+'%">내 가격<b>'+won(fin)+'</b></div>':'')+
+          '<div class="track">'+
+            (deal?'<div class="seg gap" style="left:'+xf+'%;width:'+(xv-xf)+'%"></div><div class="seg saved" style="left:'+xv+'%;width:'+(xa-xv)+'%"></div>'
+                 :'<div class="seg gap" style="left:'+xf+'%;width:'+(xa-xf)+'%"></div>')+
+            '<i class="tick" style="left:'+xf+'%"></i><i class="tick" style="left:'+xa+'%"></i>'+
+            (deal?'<i class="dotm" style="left:'+xv+'%"></i>':'')+
+          '</div>'+
+          '<div class="lab l num" style="left:'+xf+'%">판매자 최저가<b>'+won(p.floor)+'</b></div>'+
+          '<div class="lab r num" style="right:'+(100-xa)+'%">처음 가격<b>'+won(p.ask)+'</b></div>'+
+        '</div>'+
+        '<div class="legend"><span><i style="background:var(--accent)"></i>내가 깎은 금액</span><span><i style="background:repeating-linear-gradient(135deg,var(--surface-2) 0 3px,var(--line) 3px 6px)"></i>더 깎을 수 있던 금액</span></div>'+
+        logHtml+
+        '<dl class="rows num" style="margin:0">'+
+          '<div><dt>처음 가격</dt><dd>'+won(p.ask)+'</dd></div>'+
+          '<div><dt>최종 가격</dt><dd>'+(deal?won(fin):'거래 안 함')+'</dd></div>'+
+          '<div><dt>판매자 속마음 최저가</dt><dd>'+won(p.floor)+'</dd></div>'+
+          '<div><dt>'+(deal?'더 깎을 수 있던 금액':'놓친 금액')+'</dt><dd>'+won(missed)+'</dd></div>'+
+          '<div><dt>주고받은 제안</dt><dd>'+st.rounds+'번</dd></div>'+
+          '<div><dt>나눈 이야기</dt><dd>상태 질문 '+st.qCount+'개 · 거래 방식 '+Object.keys(st.met).length+'개</dd></div>'+
+        '</dl>'+
+        '<div class="act"><button class="btn primary" data-act="retry">같은 상품 다시 해보기</button><button class="btn ghost" data-go="feed">다른 상품 고르기</button></div>'+
+      '</div>';
+    show('report');
+  }
+
+  /* ---------- 이벤트 ---------- */
+  document.addEventListener('click', function(e){
+    var t = e.target.closest('button'); if(!t) return;
+    if(t.dataset.cat){ cat=t.dataset.cat; renderCats(); renderFeed(); return; }
+    if(t.classList.contains('item')){ openDetail(Number(t.dataset.id)); return; }
+    if(t.id==='startChat'){ startChat(); return; }
+    if(t.id==='chatBack'){ show('detail'); return; }
+    if(t.dataset.go){ show(t.dataset.go); return; }
+    var a = t.dataset.act; if(!a) return;
+    if(a==='open') chooseOpener(Number(t.dataset.i));
+    else if(a==='step'){ var uu=unit(st.p.ask); st.offerVal = clamp((st.offerVal||0)+Number(t.dataset.d)*uu, uu, st.curAsk-uu); renderPanel(); }
+    else if(a==='set'){ st.offerVal = Number(t.dataset.v); renderPanel(); }
+    else if(a==='sweet'){ st.sel[t.dataset.k] = !st.sel[t.dataset.k]; renderPanel(); }
+    else if(a==='theme') toggleTheme();
+    else if(a==='send') trySend();
+    else if(a==='view'){ st.view = t.dataset.v; renderPanel(); }
+    else if(a==='ask') doAsk(t.dataset.k);
+    else if(a==='meet') doMeet(t.dataset.k);
+    else if(a==='follow') doFollow(t.dataset.k);
+    else if(a==='buy') buyNow();
+    else if(a==='quit') giveUp();
+    else if(a==='report') renderReport();
+    else if(a==='retry'){ startChat(); }
+  });
+
+  document.addEventListener('input', function(e){
+    if(e.target.id!=='offerInput') return;
+    var d = e.target.value.replace(/[^0-9]/g,'').slice(0,9);
+    st.offerVal = d ? Number(d) : 0;
+    $('#offerHint').textContent = hintText(st.offerVal);
+    var er=$('#offerErr'); if(er) er.hidden = true;
+  });
+  document.addEventListener('change', function(e){
+    if(e.target.id==='offerInput') e.target.value = st.offerVal ? st.offerVal.toLocaleString('ko-KR') : '';
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.target.id==='offerInput' && e.key==='Enter'){ e.preventDefault(); trySend(); }
+  });
+
+  paintThemeBtns(); show('feed');
+  function loadJSON(u){return fetch(u).then(function(r){if(!r.ok)throw new Error(u+' '+r.status);return r.json();});}
+  Promise.all([loadJSON('data/personas.json'),loadJSON('data/products.json')]).then(function(r){
+    PERSONAS=r[0]; PRODUCTS=r[1]; renderCats(); renderFeed();
+  }).catch(function(e){
+    $('#feed').innerHTML='<li style="padding:24px;line-height:1.6">데이터 파일(data/*.json)을 불러오지 못했어요.<br>파일을 더블클릭해서 연 경우 브라우저가 막아요. 폴더에서 <b>python -m http.server</b> 를 실행하고 localhost 주소로 열거나, GitHub Pages에 올려서 확인하세요.</li>';
+  });
+})();
+</script>
+</body>
+</html>
